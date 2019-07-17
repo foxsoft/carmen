@@ -1,0 +1,65 @@
+#!/bin/sh
+
+# Tool to aid with the docker-sync tool.
+# ----------------------------------------
+# Designed to run on the host machine, these functions provide a shortcut to common
+# commands required in day to day development, such as starting the development environment,
+# and performing bundle installs.
+
+ProgName=$(basename $0)
+
+# https://gist.github.com/waylan/4080362
+sub_help(){
+    echo "Usage: $ProgName <subcommand> [options]\n"
+    echo "Subcommands:"
+    echo "    start                        Runs docker-sync start"
+    echo "    stack                        Runs docker-sync-stack start"
+    echo "    clean                        Runs docker-sync-stack clean"
+    echo "    run [container] [command]    Runs passed in command on specified container"
+    echo "    exec [container] [command]   Runs passed in command on specified container"
+    echo ""
+    echo "For help with each subcommand run:"
+    echo "$ProgName <subcommand> -h|--help"
+    echo ""
+}
+
+sub_run(){
+    docker-compose -f docker-compose.yml -f docker-compose-dev.yml run $@
+}
+
+sub_exec(){
+    docker-compose -f docker-compose.yml -f docker-compose-dev.yml exec $@
+}
+
+sub_stack(){
+    docker-sync-stack start
+}
+
+sub_start(){
+    docker-sync start
+}
+
+sub_clean(){
+    docker-sync-stack clean
+}
+
+sub_bundle(){
+    sub_start
+    docker-compose -f docker-compose.yml -f docker-compose-dev.yml run web bundle install
+}
+
+subcommand=$1
+case ${subcommand} in
+    "" | "-h" | "--help")
+        sub_help
+        ;;
+    *)
+        shift
+        sub_${subcommand} $@
+        if [[ $? = 127 ]]; then
+            echo "Error: '$subcommand' is not a known subcommand." >&2
+            echo "       Run '$ProgName --help' for a list of known subcommands." >&2
+            exit 1
+        fi
+        ;;
+esac

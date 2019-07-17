@@ -1,0 +1,9 @@
+= content_for(:title) { t(".title") }
+
+%header.main-content__header{:role => "banner"}
+  %h1.main-content__page-title
+    = t(".title")
+  %div
+%section.main-content__body
+  %p= t(".description")
+  = link_to t('layouts.application.sign_in'), sign_in_path

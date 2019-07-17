@@ -1,0 +1,30 @@
+# This file is for unifying the coding style for different editors and IDEs.
+# More information at http://EditorConfig.org
+
+# Based on initial config from http://davidensinger.com/2013/07/why-i-use-editorconfig/
+
+# No .editorconfig files above the root directory
+root = true
+
+[*]
+indent_style = space
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Use 2 spaces for indentation in HTML, JavaScript, Ruby, ERB, HAML, SCSS, less, CSS, CoffeeScript, and XML
+
+[*.{html, js, rb, erb, haml, scss, sass, less, css, coffee, xml}]
+indent_size = 2
+
+[Gemfile*]
+indent_size = 2
+
+[Rakefile]
+indent_size = 2
+
+# Use 4 spaces for indentation in Markdown files
+
+[*.md]
+indent_size = 4

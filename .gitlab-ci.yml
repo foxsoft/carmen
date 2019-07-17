@@ -1,0 +1,153 @@
+# Smaller environment, without the need for node and all the other rubbish
+.base:
+  image: "ruby:2.6.3"
+
+  before_script:
+    # Print out versions for debugging
+    - ruby -v
+
+# Full environment for rails with postgres and everything
+.rails_base:
+  extends: .base
+
+  before_script:
+    # Install node and some other deps
+    - curl -sL https://deb.nodesource.com/setup_12.x | bash -
+    - curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+    - echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
+    - apt-get update -yq
+    - apt-get install -y apt-transport-https build-essential cmake nodejs unzip yarn
+
+    # Print out versions for debugging
+    - ruby -v
+    - node -v
+    - yarn -v
+
+    # Project setup
+    - bundle check || bundle install --jobs $(nproc)
+    - yarn check || yarn install
+
+  services:
+    - postgres:latest
+
+  variables:
+    POSTGRES_DB: enigma_test
+    BUNDLE_PATH: vendor/bundle
+    DB_HOST: postgres
+
+  # Cache gems in between builds
+  cache:
+    key: gems_and_packages
+    paths:
+      - vendor/bundle
+      - node_modules
+
+stages:
+  - build
+  - test
+  - deploy
+
+build:assets_precompile:
+  extends: .rails_base
+  stage: build
+  script:
+    - bundle exec rake assets:precompile
+
+test:rubocop:
+  extends: .base
+  stage: test
+  allow_failure: true
+  artifacts:
+    name: rubocop_report
+    when: always
+    paths:
+      - rubocop/
+    expire_in: 1 week
+  script:
+    - gem install rubocop
+    - rubocop --format html -o rubocop/index.html
+
+test:bundle_audit:
+  extends: .base
+  allow_failure: true
+  script:
+    - gem install bundler-audit
+    - bundle audit check --update
+
+test:brakeman:
+  extends: .base
+  stage: test
+  allow_failure: true
+  artifacts:
+    name: brakeman_report
+    when: always
+    paths:
+      - brakeman/
+    expire_in: 1 week
+  script:
+    - gem install brakeman
+    - brakeman --format html -o brakeman/index.html
+
+test:rails_best_pratices:
+  extends: .base
+  stage: test
+  allow_failure: true
+  artifacts:
+    name: rails_best_practices_report
+    when: always
+    paths:
+      - rails_best_practices/
+    expire_in: 1 week
+  script:
+    - gem install rails_best_practices
+    - mkdir rails_best_practices
+    - rails_best_practices -f html . --output-file rails_best_practices/index.html
+
+test:dawnscanner:
+  extends: .base
+  stage: test
+  allow_failure: true
+  artifacts:
+    name: dawnscanner_report
+    when: always
+    paths:
+      - dawnscanner
+    expire_in: 1 week
+  script:
+    - gem install dawnscanner
+    - mkdir dawnscanner
+    - dawn --html -zF dawnscanner/index.html .
+
+test:rspec:
+  extends: .rails_base
+  stage: test
+  artifacts:
+    name: rspec_report
+    when: always
+    paths:
+      - rspec
+      - docs/capybara
+    expire_in: 1 week
+  script:
+    # Project setup
+    - bundle exec rails db:create RAILS_ENV=test
+    - bundle exec rails db:schema:load RAILS_ENV=test
+
+    # Run the specs
+    - bundle exec rspec --format html --out rspec/index.html
+
+deploy:cloud66:
+  extends: .base
+  stage: deploy
+  script:
+    - curl --request POST  https://hooks.cloud66.com/stacks/redeploy/56ae980272ddaefb915a2c31d31f1d94/92777c2daf0edf77dbb1380a8380e23e
+  only:
+    - master
+
+deploy:netlify:
+  extends: .base
+  stage: deploy
+  script:
+    - curl -X POST -d {} https://api.netlify.com/build_hooks/5d285e4159f897470075d288
+  only:
+    - master

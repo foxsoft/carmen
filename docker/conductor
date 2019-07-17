@@ -1,0 +1,99 @@
+#!/bin/sh
+
+# Tool to aid in docker-based development.
+# ----------------------------------------
+# Designed to run inside docker container, generally called from the `docker-compose.yml`
+# file, to start the various services (rails, guard, delayed job, et al).
+
+ProgName=$(basename $0)
+
+# https://gist.github.com/waylan/4080362
+sub_help(){
+    echo "Usage: $ProgName <subcommand> [options]\n"
+    echo "Subcommands:"
+    echo "    start_web         Starts Rails"
+    echo "    start_webpack     Starts Webpacker"
+    echo "    start_guard       Starts Guard"
+    echo "    start_queue       Starts Delayed Jobs"
+    echo ""
+    echo "For help with each subcommand run:"
+    echo "$ProgName <subcommand> -h|--help"
+    echo ""
+}
+
+sub_start_web(){
+    wait_for_yarn
+    check_bundler
+    wait_for_postgres
+
+    bundle exec puma -b 'ssl://0.0.0.0:3000?key=config/localhost.key&cert=config/localhost.crt' -b 'tcp://0.0.0.0:3001'
+}
+
+sub_start_webpack(){
+    check_yarn
+    check_bundler
+    wait_for_postgres
+
+    WEBPACKER_DEV_SERVER_HOST=0.0.0.0 ./bin/webpack-dev-server
+}
+
+sub_start_guard(){
+    wait_for_yarn
+    check_bundler
+    wait_for_postgres
+
+    bundle exec guard --no-bundler-warning --no-interactions
+}
+
+sub_start_queue(){
+    wait_for_yarn
+    check_bundler
+    wait_for_postgres
+
+    bundle exec rake jobs:work
+}
+
+check_bundler(){
+    echo "Checking bundle dependencies..."
+    bundle check || bundle install
+}
+
+check_yarn(){
+    echo "Checking yarn dependencies..."
+    yarn check || yarn install
+}
+
+# https://docs.docker.com/compose/startup-order/
+wait_for_postgres(){
+    until psql -h "db" -U "postgres" -c '\q'; do
+        >&2 echo "Postgres is unavailable - sleeping"
+        sleep 1
+    done
+
+    >&2 echo "Postgres is up - executing command"
+}
+
+wait_for_yarn(){
+    until yarn check; do
+        >&2 echo "Yarn is uninstalled - sleeping"
+        sleep 1
+    done
+
+    >&2 echo "Yarn is installed - executing command"
+}
+
+subcommand=$1
+case ${subcommand} in
+    "" | "-h" | "--help")
+        sub_help
+        ;;
+    *)
+        shift
+        sub_${subcommand} $@
+        if [[ $? = 127 ]]; then
+            echo "Error: '$subcommand' is not a known subcommand." >&2
+            echo "       Run '$ProgName --help' for a list of known subcommands." >&2
+            exit 1
+        fi
+        ;;
+esac

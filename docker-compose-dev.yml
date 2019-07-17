@@ -1,0 +1,18 @@
+version: '3'
+services:
+  web:
+    volumes:
+      - carmen-sync:/usr/src/app:nocopy # nocopy is important
+  webpack:
+    volumes:
+      - carmen-sync:/usr/src/app:nocopy # nocopy is important
+  guard:
+    volumes:
+      - carmen-sync:/usr/src/app:nocopy #  nocopy is important
+#  queue:
+#    volumes:
+#      - carmen-sync:/usr/src/app:nocopy #  nocopy is important
+
+volumes:
+  carmen-sync:
+    external: true

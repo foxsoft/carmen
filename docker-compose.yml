@@ -1,0 +1,65 @@
+version: '3'
+services:
+  db:
+    image: postgres
+    volumes:
+      - ./tmp/db:/var/lib/postgresql/data
+      - .:/var/sync
+    ports:
+      - "5432:5432"
+    working_dir: /var/sync # To let us import database dumps
+
+  web:
+    build: .
+    image: carmen
+    command: ['docker/conductor', 'start_web']
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "80:3001"
+      - "3001:3001"
+      - "443:3000"
+      - "3000:3000"
+    depends_on:
+      - db
+      - mailcatcher
+      - webpack
+
+  webpack:
+    build: .
+    image: carmen
+    command: ['docker/conductor', 'start_webpack']
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "3035:3035"
+
+#  queue:
+#    build: .
+#    image: carmen
+#    command: ['docker/conductor', 'start_queue']
+#    volumes:
+#      - .:/usr/src/app
+#    ports: []
+#    depends_on:
+#      - db
+#      - mailcatcher
+
+  # https://www.chrisblunt.com/ruby-on-rails-running-tests-with-guard-and-docker/:
+  guard:
+    build: .
+    image: carmen
+    command: ['docker/conductor', 'start_guard']
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "35729:35729" # Live reload
+      - "23053:23053" # GNTP
+    depends_on:
+      - db
+
+  mailcatcher:
+    image: yappabe/mailcatcher
+    ports:
+      - 1025:1025
+      - 1080:1080
